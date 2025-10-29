@@ -1,0 +1,59 @@
+version: '3.8'  # Versión del formato de Docker Compose
+
+services:
+  # === INSTANCIA 1+ ===
+  mysql1:
+    image: mysql:8.0                 # Imagen oficial de MySQL versión 8
+    container_name: mysql1           # Nombre del contenedor
+    environment:
+      MYSQL_ROOT_PASSWORD: root      # Contraseña del usuario root
+      MYSQL_DATABASE: tienda         # Base de datos inicial que se crea al arrancar
+    ports:
+      - "3307:3306"                  # Puerto local 3307 mapeado al 3306 interno del contenedor
+    command: [
+      # Configuraciones necesarias para habilitar la replicación
+      "--server-id=1",                              # Identificador único del servidor (debe ser diferente entre instancias)
+      "--log-bin=mysql-bin",                        # Habilita los logs binarios (necesarios para replicación)
+      "--gtid-mode=ON",                             # Activa GTID (Global Transaction Identifiers)
+      "--enforce-gtid-consistency=ON",              # Garantiza consistencia entre transacciones replicadas
+      "--binlog-format=ROW",                        # Formato de replicación por filas
+      "--plugin-load-add=group_replication.so",     # Carga el plugin de replicación en grupo
+      "--group-replication-group-name=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", # ID único del grupo de replicación
+      "--group-replication-start-on-boot=off",      # No inicia automáticamente (lo haremos manualmente)
+      "--group-replication-local-address=mysql1:33061", # Dirección local para la comunicación del grupo
+      "--group-replication-group-seeds=mysql1:33061,mysql2:33061", # Lista de nodos participantes
+      "--group-replication-single-primary-mode=ON"   # Define que solo un nodo puede escribir (modo primario único)
+    ]
+    volumes:
+      - ./init-db:/docker-entrypoint-initdb.d       # Carga el script SQL inicial (creación de tablas y datos)
+    networks:
+      - replicanet                                  # Red virtual compartida entre los contenedores
+
+  mysql2:
+    image: mysql:8.0
+    container_name: mysql2
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tienda
+    ports:
+      - "3308:3306"                  # Puerto local 3308 (para conectarse a la segunda instancia)
+    command: [
+      "--server-id=2",                              # Identificador diferente al del primer servidor
+      "--log-bin=mysql-bin",
+      "--gtid-mode=ON",
+      "--enforce-gtid-consistency=ON",
+      "--binlog-format=ROW",
+      "--plugin-load-add=group_replication.so",
+      "--group-replication-group-name=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "--group-replication-start-on-boot=off",
+      "--group-replication-local-address=mysql2:33061",
+      "--group-replication-group-seeds=mysql1:33061,mysql2:33061",
+      "--group-replication-single-primary-mode=ON"
+    ]
+    networks:
+      - replicanet
+
+# === RED COMPARTIDA ENTRE LOS CONTENEDORES ===
+networks:
+  replicanet:
+    driver: bridge   # Tipo de red: bridge (local entre contenedores)
