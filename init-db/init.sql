@@ -1,4 +1,7 @@
 -- Tabla PERSONA: almacena información de los clientes o empleados
+CREATE DATABASE IF NOT EXISTS tienda;
+USE tienda;
+
 CREATE TABLE PERSONA (
   P_ID INT PRIMARY KEY AUTO_INCREMENT,
   P_NOMBRE VARCHAR(50),
